@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CANSLIM Pro - Dashboard Gratuito</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        .score-bar { transition: width 0.5s ease-out; }
+        [v-cloak] { display: none; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 font-sans min-h-screen">
+
+    <div id="app" class="max-w-6xl mx-auto px-4 py-8">
+        <!-- HEADER -->
+        <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-4">
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <div class="bg-blue-600 p-1.5 rounded-lg text-white">
+                        <i data-lucide="trending-up" class="w-6 h-6"></i>
+                    </div>
+                    <h1 class="text-2xl font-bold tracking-tight text-slate-800">CANSLIM Pro Screener</h1>
+                </div>
+                <p class="text-sm text-slate-500">
+                    Última actualización: <span id="last-update" class="font-semibold text-slate-700">Cargando...</span>
+                </p>
+            </div>
+            
+            <div class="flex gap-3">
+                <div class="relative">
+                    <i data-lucide="search" class="absolute left-3 top-2.5 w-4 h-4 text-slate-400"></i>
+                    <input type="text" id="search" placeholder="Buscar ticker..." 
+                           class="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-full md:w-64">
+                </div>
+            </div>
+        </header>
+
+        <!-- FILTROS RÁPIDOS -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Score Mínimo</label>
+                <input type="range" id="min-score" min="0" max="8190" step="100" value="0" class="w-full h-2 bg-slate-100 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                <div class="flex justify-between text-xs mt-1 text-slate-500">
+                    <span>0</span>
+                    <span id="score-val" class="font-bold text-blue-600">0</span>
+                    <span>8190</span>
+                </div>
+            </div>
+            <!-- Otros stats se llenarán dinámicamente -->
+            <div class="bg-blue-600 p-4 rounded-2xl text-white shadow-lg shadow-blue-200">
+                <p class="text-blue-100 text-xs font-bold uppercase">Total Acciones</p>
+                <p id="stat-total" class="text-2xl font-bold">--</p>
+            </div>
+            <div class="bg-emerald-500 p-4 rounded-2xl text-white shadow-lg shadow-emerald-100">
+                <p class="text-emerald-100 text-xs font-bold uppercase">Setup Elite (>4000)</p>
+                <p id="stat-elite" class="text-2xl font-bold">--</p>
+            </div>
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-3">
+                <div class="p-2 bg-amber-100 text-amber-600 rounded-lg">
+                    <i data-lucide="alert-circle" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <p class="text-slate-400 text-[10px] font-bold uppercase">Mercado</p>
+                    <p class="text-sm font-bold text-slate-700">Confirmado</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLA DE RESULTADOS -->
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-50 border-b border-slate-100">
+                        <tr>
+                            <th class="p-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Score</th>
+                            <th class="p-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Ticker</th>
+                            <th class="p-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Precio</th>
+                            <th class="p-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">RS Rating</th>
+                            <th class="p-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Potencia Algoritmo</th>
+                        </tr>
+                    </thead>
+                    <tbody id="table-body" class="divide-y divide-slate-50">
+                        <!-- Las filas se insertan aquí -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="no-results" class="hidden p-12 text-center text-slate-400">
+                <i data-lucide="search-x" class="mx-auto w-12 h-12 mb-3 opacity-20"></i>
+                <p>No se encontraron acciones que cumplan los criterios.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allData = [];
+
+        async function init() {
+            try {
+                // Buscamos el archivo data.json generado por Step 2
+                const response = await fetch('data.json');
+                const json = await response.json();
+                allData = json.data;
+                document.getElementById('last-update').innerText = json.updated;
+                
+                render();
+            } catch (e) {
+                console.error("Error cargando data.json:", e);
+                document.getElementById('table-body').innerHTML = `
+                    <tr><td colspan="5" class="p-10 text-center text-red-500">
+                        Error al cargar data.json. Asegúrate de que el archivo existe y el script ha corrido al menos una vez.
+                    </td></tr>`;
+            }
+            lucide.createIcons();
+        }
+
+        function render() {
+            const search = document.getElementById('search').value.toUpperCase();
+            const minScore = parseInt(document.getElementById('min-score').value);
+            const tableBody = document.getElementById('table-body');
+            
+            // Filtrar y Ordenar por Score
+            const filtered = allData
+                .filter(d => (d.t.includes(search)) && (d.s >= minScore))
+                .sort((a, b) => b.s - a.s);
+
+            // Actualizar Stats
+            document.getElementById('stat-total').innerText = allData.length;
+            document.getElementById('stat-elite').innerText = allData.filter(d => d.s > 4000).length;
+            document.getElementById('score-val').innerText = minScore;
+
+            if (filtered.length === 0) {
+                document.getElementById('no-results').classList.remove('hidden');
+                tableBody.innerHTML = '';
+            } else {
+                document.getElementById('no-results').classList.add('hidden');
+                tableBody.innerHTML = filtered.map(d => {
+                    const scorePercent = (d.s / 8190) * 100;
+                    const scoreColor = d.s > 6000 ? 'bg-emerald-500' : d.s > 3000 ? 'bg-blue-500' : 'bg-slate-300';
+                    const badgeColor = d.s > 6000 ? 'bg-emerald-100 text-emerald-700' : d.s > 3000 ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600';
+                    
+                    return `
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="p-4">
+                                <span class="px-2.5 py-1 rounded-lg font-bold text-xs ${badgeColor}">
+                                    ${d.s}
+                                </span>
+                            </td>
+                            <td class="p-4 font-bold text-slate-800">${d.t}</td>
+                            <td class="p-4 text-right font-mono text-slate-600">$${d.p.toFixed(2)}</td>
+                            <td class="p-4 text-right font-semibold ${d.rs > 80 ? 'text-emerald-600' : 'text-slate-500'}">
+                                ${d.rs.toFixed(1)}
+                            </td>
+                            <td class="p-4">
+                                <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                    <div class="score-bar h-full ${scoreColor}" style="width: ${scorePercent}%"></div>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+        }
+
+        // Eventos
+        document.getElementById('search').addEventListener('input', render);
+        document.getElementById('min-score').addEventListener('input', render);
+
+        init();
+    </script>
+</body>
+</html>
