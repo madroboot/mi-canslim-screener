@@ -2,8 +2,8 @@ name: Escaneo Diario CANSLIM
 
 on:
 schedule:
-- cron: '0 4 * * *' # Se ejecuta automáticamente todos los días a las 4 AM UTC
-workflow_dispatch: # Permite ejecutar el escáner manualmente desde la pestaña "Actions"
+- cron: '0 4 * * *'
+workflow_dispatch:
 
 jobs:
 build:
